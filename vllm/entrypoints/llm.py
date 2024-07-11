@@ -81,7 +81,7 @@ class LLM:
         disable_custom_all_reduce: See ParallelConfig
         **kwargs: Arguments for :class:`~vllm.EngineArgs`. (See
             :ref:`engine_args`)
-    
+
     Note:
         This class is intended to be used for offline inference. For online
         serving, use the :class:`~vllm.AsyncLLMEngine` class instead.
@@ -267,9 +267,9 @@ class LLM:
         Args:
             inputs: A list of inputs to generate completions for.
             sampling_params: The sampling parameters for text generation. If
-                None, we use the default sampling parameters. 
-                When it is a single value, it is applied to every prompt. 
-                When it is a list, the list must have the same length as the 
+                None, we use the default sampling parameters.
+                When it is a single value, it is applied to every prompt.
+                When it is a list, the list must have the same length as the
                 prompts and it is paired one by one with the prompt.
             use_tqdm: Whether to use tqdm to display the progress bar.
             lora_request: LoRA request to use for generation, if any.
@@ -570,13 +570,21 @@ class LLM:
         outputs: List[Union[RequestOutput, EmbeddingRequestOutput]] = []
         total_in_toks = 0
         total_out_toks = 0
+        import time
+        start_time = []
         while self.llm_engine.has_unfinished_requests():
+            start_time.append(time.time()) # 长度等于输出的token数
+            # infer and output new token
             step_outputs = self.llm_engine.step()
             for output in step_outputs:
                 if output.finished:
                     outputs.append(output)
                     if use_tqdm:
                         if isinstance(output, RequestOutput):
+                            cost_time = time.time() - start_time[0]
+                            count_output_tokens = sum(len(stp.token_ids) for stp in output.outputs)
+                            print("count_output_tokens = ", count_output_tokens)
+                            print(f"mean_per_token_cost_time = {cost_time*1000/count_output_tokens:.6f} ms")
                             # Calculate tokens only for RequestOutput
                             total_in_toks += len(output.prompt_token_ids)
                             in_spd = total_in_toks / pbar.format_dict["elapsed"]
